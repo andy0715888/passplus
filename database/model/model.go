@@ -23,6 +23,14 @@ type User struct {
 	Password string `json:"password"`
 }
 
+type SecondaryForwardProtocol string
+
+const (
+	SecondaryForwardNone   SecondaryForwardProtocol = "none"
+	SecondaryForwardSOCKS  SecondaryForwardProtocol = "socks"
+	SecondaryForwardHTTP   SecondaryForwardProtocol = "http"
+)
+
 type Inbound struct {
 	Id         int    `json:"id" form:"id" gorm:"primaryKey;autoIncrement"`
 	UserId     int    `json:"-"`
@@ -41,6 +49,14 @@ type Inbound struct {
 	StreamSettings string   `json:"streamSettings" form:"streamSettings"`
 	Tag            string   `json:"tag" form:"tag" gorm:"unique"`
 	Sniffing       string   `json:"sniffing" form:"sniffing"`
+
+	// 二次转发配置
+	SecondaryForwardEnable   bool                      `json:"secondaryForwardEnable" form:"secondaryForwardEnable" gorm:"default:false"`
+	SecondaryForwardProtocol SecondaryForwardProtocol `json:"secondaryForwardProtocol" form:"secondaryForwardProtocol" gorm:"default:'none'"`
+	SecondaryForwardAddress  string                    `json:"secondaryForwardAddress" form:"secondaryForwardAddress"`
+	SecondaryForwardPort     int                       `json:"secondaryForwardPort" form:"secondaryForwardPort" gorm:"default:0"`
+	SecondaryForwardUsername string                    `json:"secondaryForwardUsername" form:"secondaryForwardUsername"`
+	SecondaryForwardPassword string                    `json:"secondaryForwardPassword" form:"secondaryForwardPassword"`
 }
 
 func (i *Inbound) GenXrayInboundConfig() *xray.InboundConfig {
