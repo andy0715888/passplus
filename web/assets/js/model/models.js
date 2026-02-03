@@ -45,6 +45,14 @@ class DBInbound {
         this.tag = "";
         this.sniffing = "";
 
+        // 二次转发配置
+        this.secondaryForwardEnable = false;
+        this.secondaryForwardProtocol = "none";
+        this.secondaryForwardAddress = "";
+        this.secondaryForwardPort = 0;
+        this.secondaryForwardUsername = "";
+        this.secondaryForwardPassword = "";
+
         if (data == null) {
             return;
         }
@@ -110,6 +118,27 @@ class DBInbound {
         return this.expiryTime < new Date().getTime();
     }
 
+    // 检查是否启用了二次转发
+    get hasSecondaryForward() {
+        return this.secondaryForwardEnable && 
+               this.secondaryForwardProtocol !== "none" && 
+               this.secondaryForwardProtocol !== "";
+    }
+
+    // 获取二次转发服务器地址（带端口）
+    get secondaryForwardServer() {
+        if (!this.hasSecondaryForward) {
+            return "";
+        }
+        return `${this.secondaryForwardAddress}:${this.secondaryForwardPort}`;
+    }
+
+    // 检查是否需要认证
+    get secondaryForwardHasAuth() {
+        return !ObjectUtil.isEmpty(this.secondaryForwardUsername) || 
+               !ObjectUtil.isEmpty(this.secondaryForwardPassword);
+    }
+
     toInbound() {
         let settings = {};
         if (!ObjectUtil.isEmpty(this.settings)) {
@@ -125,6 +154,7 @@ class DBInbound {
         if (!ObjectUtil.isEmpty(this.sniffing)) {
             sniffing = JSON.parse(this.sniffing);
         }
+        
         const config = {
             port: this.port,
             listen: this.listen,
@@ -133,6 +163,13 @@ class DBInbound {
             streamSettings: streamSettings,
             tag: this.tag,
             sniffing: sniffing,
+            // 添加二次转发配置
+            secondaryForwardEnable: this.secondaryForwardEnable,
+            secondaryForwardProtocol: this.secondaryForwardProtocol,
+            secondaryForwardAddress: this.secondaryForwardAddress,
+            secondaryForwardPort: this.secondaryForwardPort,
+            secondaryForwardUsername: this.secondaryForwardUsername,
+            secondaryForwardPassword: this.secondaryForwardPassword,
         };
         return Inbound.fromJson(config);
     }
@@ -152,6 +189,27 @@ class DBInbound {
     genLink() {
         const inbound = this.toInbound();
         return inbound.genLink(this.address, this.remark);
+    }
+
+    // 验证二次转发配置
+    validateSecondaryForward() {
+        if (!this.secondaryForwardEnable) {
+            return { valid: true, message: "" };
+        }
+        
+        if (this.secondaryForwardProtocol === "none" || this.secondaryForwardProtocol === "") {
+            return { valid: false, message: "启用二次转发时必须选择协议类型" };
+        }
+        
+        if (ObjectUtil.isEmpty(this.secondaryForwardAddress)) {
+            return { valid: false, message: "二次转发服务器地址不能为空" };
+        }
+        
+        if (this.secondaryForwardPort <= 0 || this.secondaryForwardPort > 65535) {
+            return { valid: false, message: "二次转发端口必须在1-65535之间" };
+        }
+        
+        return { valid: true, message: "" };
     }
 }
 
