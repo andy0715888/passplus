@@ -237,6 +237,14 @@
                     title: '添加入站',
                     okText: '添加',
                     confirm: async (inbound, dbInbound) => {
+                        // 验证二次转发配置
+                        const validation = dbInbound.validateSecondaryForward();
+                        if (!validation.valid) {
+                            promptModal.show('验证失败', validation.message);
+                            inModal.loading(false);
+                            return;
+                        }
+                        
                         inModal.loading();
                         await this.addInbound(inbound, dbInbound);
                         inModal.close();
@@ -251,6 +259,14 @@
                     inbound: inbound,
                     dbInbound: dbInbound,
                     confirm: async (inbound, dbInbound) => {
+                        // 验证二次转发配置
+                        const validation = dbInbound.validateSecondaryForward();
+                        if (!validation.valid) {
+                            promptModal.show('验证失败', validation.message);
+                            inModal.loading(false);
+                            return;
+                        }
+                        
                         inModal.loading();
                         await this.updateInbound(inbound, dbInbound);
                         inModal.close();
@@ -272,6 +288,14 @@
                     settings: inbound.settings.toString(),
                     streamSettings: inbound.stream.toString(),
                     sniffing: inbound.canSniffing() ? inbound.sniffing.toString() : '{}',
+                    
+                    // 二次转发配置
+                    secondaryForwardEnable: dbInbound.secondaryForwardEnable,
+                    secondaryForwardProtocol: dbInbound.secondaryForwardProtocol,
+                    secondaryForwardAddress: dbInbound.secondaryForwardAddress,
+                    secondaryForwardPort: dbInbound.secondaryForwardPort,
+                    secondaryForwardUsername: dbInbound.secondaryForwardUsername,
+                    secondaryForwardPassword: dbInbound.secondaryForwardPassword,
                 };
                 await this.submit('/xui/inbound/add', data, inModal);
             },
@@ -290,6 +314,14 @@
                     settings: inbound.settings.toString(),
                     streamSettings: inbound.stream.toString(),
                     sniffing: inbound.canSniffing() ? inbound.sniffing.toString() : '{}',
+                    
+                    // 二次转发配置
+                    secondaryForwardEnable: dbInbound.secondaryForwardEnable,
+                    secondaryForwardProtocol: dbInbound.secondaryForwardProtocol,
+                    secondaryForwardAddress: dbInbound.secondaryForwardAddress,
+                    secondaryForwardPort: dbInbound.secondaryForwardPort,
+                    secondaryForwardUsername: dbInbound.secondaryForwardUsername,
+                    secondaryForwardPassword: dbInbound.secondaryForwardPassword,
                 };
                 await this.submit(`/xui/inbound/update/${dbInbound.id}`, data, inModal);
             },
@@ -324,7 +356,29 @@
                 infoModal.show(dbInbound);
             },
             switchEnable(dbInbound) {
-                this.submit(`/xui/inbound/update/${dbInbound.id}`, dbInbound);
+                // 更新时也需要包含二次转发配置
+                const data = {
+                    up: dbInbound.up,
+                    down: dbInbound.down,
+                    total: dbInbound.total,
+                    remark: dbInbound.remark,
+                    enable: dbInbound.enable,
+                    expiryTime: dbInbound.expiryTime,
+                    listen: dbInbound.listen,
+                    port: dbInbound.port,
+                    protocol: dbInbound.protocol,
+                    settings: dbInbound.settings,
+                    streamSettings: dbInbound.streamSettings,
+                    sniffing: dbInbound.sniffing,
+                    // 二次转发配置
+                    secondaryForwardEnable: dbInbound.secondaryForwardEnable,
+                    secondaryForwardProtocol: dbInbound.secondaryForwardProtocol,
+                    secondaryForwardAddress: dbInbound.secondaryForwardAddress,
+                    secondaryForwardPort: dbInbound.secondaryForwardPort,
+                    secondaryForwardUsername: dbInbound.secondaryForwardUsername,
+                    secondaryForwardPassword: dbInbound.secondaryForwardPassword,
+                };
+                this.submit(`/xui/inbound/update/${dbInbound.id}`, data);
             },
             async submit(url, data, modal) {
                 const msg = await HttpUtil.postWithModal(url, data, modal);
