@@ -75,7 +75,30 @@
         <p>密码: <a-tag color="green">[[ inbound.password ]]</a-tag></p>
     </template>
 
+    <!-- 二次转发信息 -->
+    <template v-if="dbInbound.hasSecondaryForward">
+        <hr style="margin: 10px 0; border: 1px dashed #e8e8e8;" />
+        <h4>二次转发配置</h4>
+        <p>状态: <a-tag color="green">已启用</a-tag></p>
+        <p>转发协议: <a-tag color="blue">[[ dbInbound.secondaryForwardProtocol.toUpperCase() ]]</a-tag></p>
+        <p>转发服务器: <a-tag color="green">[[ dbInbound.secondaryForwardAddress ]]:[[ dbInbound.secondaryForwardPort ]]</a-tag></p>
+        <template v-if="dbInbound.secondaryForwardHasAuth">
+            <p>用户名: <a-tag color="green">[[ dbInbound.secondaryForwardUsername ]]</a-tag></p>
+            <p>密码: <a-tag color="green">[[ dbInbound.secondaryForwardPassword ]]</a-tag></p>
+        </template>
+        <template v-else>
+            <p>认证: <a-tag color="orange">无认证</a-tag></p>
+        </template>
+    </template>
+    <template v-else>
+        <hr style="margin: 10px 0; border: 1px dashed #e8e8e8;" />
+        <h4>二次转发配置</h4>
+        <p>状态: <a-tag color="red">未启用</a-tag></p>
+    </template>
+
     <template v-if="dbInbound.isVMess || dbInbound.isVLess || dbInbound.isTrojan || dbInbound.isSS">
+        <hr style="margin: 10px 0; border: 1px dashed #e8e8e8;" />
+        <h4>传输配置</h4>
         {{template "inboundInfoStream"}}
     </template>
 </div>
