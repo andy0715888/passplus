@@ -112,6 +112,32 @@ install_go() {
     fi
 }
 
+# 获取最新版本号
+get_latest_version() {
+    echo -e "${yellow}获取X-UI最新版本...${plain}"
+    
+    # 尝试多种方法获取版本号
+    LATEST_VERSION=""
+    
+    # 方法1: 从GitHub API获取
+    LATEST_VERSION=$(curl -s "https://api.github.com/repos/vaxilu/x-ui/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    
+    if [[ -z "$LATEST_VERSION" ]]; then
+        # 方法2: 从release页面获取
+        LATEST_VERSION=$(curl -s "https://github.com/vaxilu/x-ui/releases" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    fi
+    
+    if [[ -z "$LATEST_VERSION" ]]; then
+        # 方法3: 使用已知的稳定版本
+        LATEST_VERSION="0.3.2"
+        echo -e "${yellow}无法获取最新版本，使用默认版本: ${LATEST_VERSION}${plain}"
+    else
+        echo -e "${green}获取到最新版本: ${LATEST_VERSION}${plain}"
+    fi
+    
+    echo "$LATEST_VERSION"
+}
+
 download_secondary_forward_files() {
     echo -e "${green}下载二次转发功能文件...${plain}"
     
@@ -124,24 +150,38 @@ download_secondary_forward_files() {
     # 使用raw.githubusercontent.com获取文件的原始内容
     
     echo -e "${yellow}下载数据库模型文件...${plain}"
-    wget -O model.go https://raw.githubusercontent.com/andy0715888/passplus/main/database/model/model.go
+    wget -q --show-progress -O model.go https://raw.githubusercontent.com/andy0715888/passplus/main/database/model/model.go 2>/dev/null || \
+    echo -e "${yellow}使用备用链接下载模型文件...${plain}" && \
+    wget -O model.go https://raw.githubusercontent.com/andy0715888/passplus/refs/heads/main/database/model/model.go
     
     echo -e "${yellow}下载控制器文件...${plain}"
-    wget -O inbound.go https://raw.githubusercontent.com/andy0715888/passplus/main/web/controller/inbound.go
+    wget -q --show-progress -O inbound.go https://raw.githubusercontent.com/andy0715888/passplus/main/web/controller/inbound.go 2>/dev/null || \
+    wget -O inbound.go https://raw.githubusercontent.com/andy0715888/passplus/refs/heads/main/web/controller/inbound.go
     
     echo -e "${yellow}下载Xray配置文件...${plain}"
-    wget -O config.go https://raw.githubusercontent.com/andy0715888/passplus/main/xray/config.go
-    wget -O inbound_config.go https://raw.githubusercontent.com/andy0715888/passplus/main/xray/inbound.go
+    wget -q --show-progress -O config.go https://raw.githubusercontent.com/andy0715888/passplus/main/xray/config.go 2>/dev/null || \
+    wget -O config.go https://raw.githubusercontent.com/andy0715888/passplus/refs/heads/main/xray/config.go
+    
+    wget -q --show-progress -O inbound_config.go https://raw.githubusercontent.com/andy0715888/passplus/main/xray/inbound.go 2>/dev/null || \
+    wget -O inbound_config.go https://raw.githubusercontent.com/andy0715888/passplus/refs/heads/main/xray/inbound.go
     
     echo -e "${yellow}下载服务层文件...${plain}"
-    wget -O service_inbound.go https://raw.githubusercontent.com/andy0715888/passplus/main/web/service/inbound.go
+    wget -q --show-progress -O service_inbound.go https://raw.githubusercontent.com/andy0715888/passplus/main/web/service/inbound.go 2>/dev/null || \
+    wget -O service_inbound.go https://raw.githubusercontent.com/andy0715888/passplus/refs/heads/main/web/service/inbound.go
     
     echo -e "${yellow}下载前端文件...${plain}"
     mkdir -p web/html/xui
-    wget -O form_inbound.html https://raw.githubusercontent.com/andy0715888/passplus/main/web/html/xui/form/inbound
-    wget -O inbound_info.html https://raw.githubusercontent.com/andy0715888/passplus/main/web/html/xui/component/inboundInfo.html
-    wget -O models.js https://raw.githubusercontent.com/andy0715888/passplus/main/web/assets/js/model/models.js
-    wget -O inbounds.html https://raw.githubusercontent.com/andy0715888/passplus/main/web/html/xui/inbounds.html
+    wget -q --show-progress -O form_inbound.html https://raw.githubusercontent.com/andy0715888/passplus/main/web/html/xui/form/inbound 2>/dev/null || \
+    wget -O form_inbound.html https://raw.githubusercontent.com/andy0715888/passplus/refs/heads/main/web/html/xui/form/inbound
+    
+    wget -q --show-progress -O inbound_info.html https://raw.githubusercontent.com/andy0715888/passplus/main/web/html/xui/component/inboundInfo.html 2>/dev/null || \
+    wget -O inbound_info.html https://raw.githubusercontent.com/andy0715888/passplus/refs/heads/main/web/html/xui/component/inboundInfo.html
+    
+    wget -q --show-progress -O models.js https://raw.githubusercontent.com/andy0715888/passplus/main/web/assets/js/model/models.js 2>/dev/null || \
+    wget -O models.js https://raw.githubusercontent.com/andy0715888/passplus/refs/heads/main/web/assets/js/model/models.js
+    
+    wget -q --show-progress -O inbounds.html https://raw.githubusercontent.com/andy0715888/passplus/main/web/html/xui/inbounds.html 2>/dev/null || \
+    wget -O inbounds.html https://raw.githubusercontent.com/andy0715888/passplus/refs/heads/main/web/html/xui/inbounds.html
     
     echo -e "${green}二次转发文件下载完成！${plain}"
 }
@@ -179,19 +219,43 @@ install_x-ui() {
     # 安装Go语言环境（用于编译）
     install_go
     
+    # 获取最新版本
+    XUI_VERSION=$(get_latest_version)
+    
     # 下载原始XUI
-    echo -e "${green}下载原始X-UI面板...${plain}"
+    echo -e "${green}下载X-UI v${XUI_VERSION}...${plain}"
     cd /usr/local/
     
-    # 使用固定的版本以确保稳定性
-    XUI_VERSION="0.3.3"
-    echo -e "${yellow}下载X-UI v${XUI_VERSION}...${plain}"
-    
     # 下载预编译版本
-    wget -N --no-check-certificate -O /usr/local/x-ui-linux-${arch}.tar.gz https://github.com/vaxilu/x-ui/releases/download/${XUI_VERSION}/x-ui-linux-${arch}.tar.gz
+    echo -e "${yellow}下载链接: https://github.com/vaxilu/x-ui/releases/download/${XUI_VERSION}/x-ui-linux-${arch}.tar.gz${plain}"
     
-    if [[ $? -ne 0 ]]; then
-        echo -e "${red}下载X-UI失败，请检查网络连接${plain}"
+    # 尝试下载
+    if wget -N --no-check-certificate -O /usr/local/x-ui-linux-${arch}.tar.gz "https://github.com/vaxilu/x-ui/releases/download/${XUI_VERSION}/x-ui-linux-${arch}.tar.gz"; then
+        echo -e "${green}下载成功！${plain}"
+    else
+        echo -e "${yellow}尝试不带v前缀的版本...${plain}"
+        # 有些版本可能没有v前缀
+        VERSION_WITHOUT_V=${XUI_VERSION#v}
+        if wget -N --no-check-certificate -O /usr/local/x-ui-linux-${arch}.tar.gz "https://github.com/vaxilu/x-ui/releases/download/${VERSION_WITHOUT_V}/x-ui-linux-${arch}.tar.gz"; then
+            echo -e "${green}下载成功！${plain}"
+            XUI_VERSION=$VERSION_WITHOUT_V
+        else
+            echo -e "${yellow}尝试其他版本...${plain}"
+            # 尝试其他可能的版本
+            for version in "0.3.2" "0.3.1" "0.3.0" "0.2.0"; do
+                echo -e "${yellow}尝试版本 ${version}...${plain}"
+                if wget -N --no-check-certificate -O /usr/local/x-ui-linux-${arch}.tar.gz "https://github.com/vaxilu/x-ui/releases/download/${version}/x-ui-linux-${arch}.tar.gz"; then
+                    echo -e "${green}下载成功！使用版本 ${version}${plain}"
+                    XUI_VERSION=$version
+                    break
+                fi
+            done
+        fi
+    fi
+    
+    if [[ ! -f "/usr/local/x-ui-linux-${arch}.tar.gz" ]]; then
+        echo -e "${red}下载X-UI失败，请检查网络连接或手动下载${plain}"
+        echo -e "${yellow}你可以手动下载并放置文件，然后重新运行安装脚本${plain}"
         exit 1
     fi
     
@@ -225,29 +289,42 @@ install_x-ui() {
     echo -e "${yellow}复制二次转发文件...${plain}"
     cd /tmp/x-ui-secondary-forward
     
+    # 检查文件是否存在
+    files_copied=0
+    
     if [[ -f "model.go" ]]; then
+        mkdir -p /usr/local/x-ui/database/model
         cp model.go /usr/local/x-ui/database/model/model.go
         echo -e "${green}✓ 更新数据库模型${plain}"
+        ((files_copied++))
     fi
     
     if [[ -f "inbound.go" ]]; then
+        mkdir -p /usr/local/x-ui/web/controller
         cp inbound.go /usr/local/x-ui/web/controller/inbound.go
         echo -e "${green}✓ 更新控制器${plain}"
+        ((files_copied++))
     fi
     
     if [[ -f "config.go" ]]; then
+        mkdir -p /usr/local/x-ui/xray
         cp config.go /usr/local/x-ui/xray/config.go
         echo -e "${green}✓ 更新Xray配置${plain}"
+        ((files_copied++))
     fi
     
     if [[ -f "inbound_config.go" ]]; then
+        mkdir -p /usr/local/x-ui/xray
         cp inbound_config.go /usr/local/x-ui/xray/inbound.go
         echo -e "${green}✓ 更新Xray入站配置${plain}"
+        ((files_copied++))
     fi
     
     if [[ -f "service_inbound.go" ]]; then
+        mkdir -p /usr/local/x-ui/web/service
         cp service_inbound.go /usr/local/x-ui/web/service/inbound.go
         echo -e "${green}✓ 更新服务层${plain}"
+        ((files_copied++))
     fi
     
     # 前端文件
@@ -255,39 +332,50 @@ install_x-ui() {
         mkdir -p /usr/local/x-ui/web/html/xui/form
         cp form_inbound.html /usr/local/x-ui/web/html/xui/form/inbound
         echo -e "${green}✓ 更新前端表单${plain}"
+        ((files_copied++))
     fi
     
     if [[ -f "inbound_info.html" ]]; then
         mkdir -p /usr/local/x-ui/web/html/xui/component
         cp inbound_info.html /usr/local/x-ui/web/html/xui/component/inboundInfo.html
         echo -e "${green}✓ 更新前端组件${plain}"
+        ((files_copied++))
     fi
     
     if [[ -f "models.js" ]]; then
         mkdir -p /usr/local/x-ui/web/assets/js/model
         cp models.js /usr/local/x-ui/web/assets/js/model/models.js
         echo -e "${green}✓ 更新前端模型${plain}"
+        ((files_copied++))
     fi
     
     if [[ -f "inbounds.html" ]]; then
+        mkdir -p /usr/local/x-ui/web/html/xui
         cp inbounds.html /usr/local/x-ui/web/html/xui/inbounds.html
         echo -e "${green}✓ 更新前端页面${plain}"
+        ((files_copied++))
     fi
     
-    # 重新编译
-    echo -e "${green}重新编译带二次转发功能的X-UI...${plain}"
-    cd /usr/local/x-ui
-    
-    if command -v go &> /dev/null; then
-        echo -e "${yellow}使用Go编译...${plain}"
-        go build -o x-ui
-        if [[ $? -eq 0 ]]; then
-            echo -e "${green}✓ 编译成功！${plain}"
-        else
-            echo -e "${yellow}⚠ 编译失败，使用预编译版本（可能不包含二次转发功能）${plain}"
-        fi
+    if [[ $files_copied -eq 0 ]]; then
+        echo -e "${yellow}⚠ 未找到二次转发文件，将安装原始X-UI版本${plain}"
     else
-        echo -e "${yellow}⚠ Go未安装，使用预编译版本${plain}"
+        echo -e "${green}成功复制 ${files_copied} 个二次转发文件${plain}"
+        
+        # 重新编译
+        echo -e "${green}重新编译带二次转发功能的X-UI...${plain}"
+        cd /usr/local/x-ui
+        
+        if command -v go &> /dev/null; then
+            echo -e "${yellow}使用Go编译...${plain}"
+            go build -o x-ui
+            if [[ $? -eq 0 ]]; then
+                echo -e "${green}✓ 编译成功！${plain}"
+            else
+                echo -e "${yellow}⚠ 编译失败，使用预编译版本（可能不包含二次转发功能）${plain}"
+            fi
+        else
+            echo -e "${yellow}⚠ Go未安装，使用预编译版本${plain}"
+        fi
     fi
     
     # 设置权限
@@ -324,7 +412,8 @@ install_x-ui() {
         echo -e "${green}================================================${plain}"
         echo -e ""
         echo -e "${yellow}面板访问信息：${plain}"
-        echo -e "地址: http://服务器IP:54321"
+        SERVER_IP=$(curl -s ifconfig.me || curl -s ipinfo.io/ip || hostname -I | awk '{print $1}' || echo "服务器IP")
+        echo -e "地址: http://${SERVER_IP}:54321"
         echo -e "默认账号: admin"
         echo -e "默认密码: admin"
         echo -e ""
