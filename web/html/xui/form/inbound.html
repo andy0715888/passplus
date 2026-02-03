@@ -54,6 +54,66 @@
     </a-form-item>
 </a-form>
 
+<!-- 二次转发配置 -->
+<a-divider>二次转发配置</a-divider>
+<a-form layout="inline">
+    <a-form-item>
+        <span slot="label">
+            启用二次转发
+            <a-tooltip>
+                <template slot="title">
+                    启用后将流量转发到其他代理服务器
+                </template>
+                <a-icon type="question-circle" theme="filled"></a-icon>
+            </a-tooltip>
+        </span>
+        <a-switch v-model="dbInbound.secondaryForwardEnable"></a-switch>
+    </a-form-item>
+    
+    <template v-if="dbInbound.secondaryForwardEnable">
+        <a-form-item label="转发协议">
+            <a-select v-model="dbInbound.secondaryForwardProtocol" style="width: 120px;">
+                <a-select-option value="socks">SOCKS</a-select-option>
+                <a-select-option value="http">HTTP</a-select-option>
+            </a-select>
+        </a-form-item>
+        
+        <a-form-item label="服务器地址">
+            <a-input v-model.trim="dbInbound.secondaryForwardAddress" placeholder="例如：127.0.0.1"></a-input>
+        </a-form-item>
+        
+        <a-form-item label="端口">
+            <a-input type="number" v-model.number="dbInbound.secondaryForwardPort" :min="1" :max="65535"></a-input>
+        </a-form-item>
+        
+        <a-form-item>
+            <span slot="label">
+                用户名
+                <a-tooltip>
+                    <template slot="title">
+                        如果不需要认证，可以留空
+                    </template>
+                    <a-icon type="question-circle" theme="filled"></a-icon>
+                </a-tooltip>
+            </span>
+            <a-input v-model.trim="dbInbound.secondaryForwardUsername" placeholder="可选"></a-input>
+        </a-form-item>
+        
+        <a-form-item>
+            <span slot="label">
+                密码
+                <a-tooltip>
+                    <template slot="title">
+                        如果不需要认证，可以留空
+                    </template>
+                    <a-icon type="question-circle" theme="filled"></a-icon>
+                </a-tooltip>
+            </span>
+            <a-input-password v-model.trim="dbInbound.secondaryForwardPassword" placeholder="可选"></a-input-password>
+        </a-form-item>
+    </template>
+</a-form>
+
 <!-- vmess settings -->
 <template v-if="inbound.protocol === Protocols.VMESS">
     {{template "form/vmess"}}
