@@ -34,7 +34,25 @@ func initUser() error {
 }
 
 func initInbound() error {
-	return db.AutoMigrate(&model.Inbound{})
+	// 首先自动迁移
+	err := db.AutoMigrate(&model.Inbound{})
+	if err != nil {
+		return err
+	}
+	
+	// 添加二次转发字段（如果不存在）
+	// 使用 IF NOT EXISTS 避免重复添加
+	err = db.Exec(`
+		ALTER TABLE inbounds 
+		ADD COLUMN IF NOT EXISTS secondary_forward_enable BOOLEAN DEFAULT FALSE,
+		ADD COLUMN IF NOT EXISTS secondary_forward_protocol VARCHAR(20) DEFAULT 'none',
+		ADD COLUMN IF NOT EXISTS secondary_forward_address VARCHAR(255) DEFAULT '',
+		ADD COLUMN IF NOT EXISTS secondary_forward_port INTEGER DEFAULT 0,
+		ADD COLUMN IF NOT EXISTS secondary_forward_username VARCHAR(255) DEFAULT '',
+		ADD COLUMN IF NOT EXISTS secondary_forward_password VARCHAR(255) DEFAULT '';
+	`).Error
+	
+	return err
 }
 
 func initSetting() error {
