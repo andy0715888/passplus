@@ -3,6 +3,7 @@ package xray
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"x-ui/util/json_util"
 )
 
@@ -88,6 +89,7 @@ func (c *Config) BuildConfig() map[string]interface{} {
 	// 添加入站配置
 	var inbounds []interface{}
 	var secondaryForwardOutbounds []interface{}
+	var routingRules []interface{}
 	
 	for i := range c.InboundConfigs {
 		inbound := c.InboundConfigs[i]
@@ -108,12 +110,21 @@ func (c *Config) BuildConfig() map[string]interface{} {
 		inbounds = append(inbounds, inboundMap)
 		
 		// 如果有二次转发，添加出站配置
-		if inbound.SecondaryForwardEnable && inbound.SecondaryForwardProtocol != "none" {
-			outboundJSON := inbound.GetSecondaryForwardOutbound()
-			if outboundJSON != nil {
+		if inbound.SecondaryForwardEnable && inbound.SecondaryForwardProtocol != "" && inbound.SecondaryForwardProtocol != "none" {
+			outboundJSON, outboundTag := inbound.GetSecondaryForwardOutbound()
+			if outboundJSON != nil && outboundTag != "" {
+				// 添加出站配置
 				var outbound interface{}
 				json.Unmarshal(outboundJSON, &outbound)
 				secondaryForwardOutbounds = append(secondaryForwardOutbounds, outbound)
+				
+				// 添加路由规则
+				rule := map[string]interface{}{
+					"type":        "field",
+					"inboundTag":  []string{inbound.Tag},
+					"outboundTag": outboundTag,
+				}
+				routingRules = append(routingRules, rule)
 			}
 		}
 	}
@@ -135,13 +146,13 @@ func (c *Config) BuildConfig() map[string]interface{} {
 		outbounds = append(outbounds, secondaryForwardOutbounds...)
 	}
 	
-	// 添加路由规则，将流量转发到二次转发服务器
-	if len(secondaryForwardOutbounds) > 0 {
-		c.addRoutingRules(config)
-	}
-	
 	if len(outbounds) > 0 {
 		config["outbounds"] = outbounds
+	}
+	
+	// 添加路由规则
+	if len(routingRules) > 0 {
+		c.updateRoutingConfig(config, routingRules)
 	}
 	
 	// 添加其他配置
@@ -184,8 +195,8 @@ func (c *Config) BuildConfig() map[string]interface{} {
 	return config
 }
 
-// addRoutingRules 添加路由规则，将流量转发到二次转发服务器
-func (c *Config) addRoutingRules(config map[string]interface{}) {
+// updateRoutingConfig 更新路由配置，添加二次转发规则
+func (c *Config) updateRoutingConfig(config map[string]interface{}, newRules []interface{}) {
 	// 获取现有的路由配置
 	var routing map[string]interface{}
 	if len(c.RouterConfig) > 0 {
@@ -195,38 +206,20 @@ func (c *Config) addRoutingRules(config map[string]interface{}) {
 	}
 	
 	// 确保rules存在
-	if _, ok := routing["rules"]; !ok {
-		routing["rules"] = []interface{}{}
-	}
-	
-	rules, _ := routing["rules"].([]interface{})
-	
-	// 为每个有二次转发的入站添加路由规则
-	for _, inbound := range c.InboundConfigs {
-		if inbound.SecondaryForwardEnable && inbound.SecondaryForwardProtocol != "none" {
-			var outboundTag string
-			switch inbound.SecondaryForwardProtocol {
-			case "socks":
-				outboundTag = "socks-forward-outbound"
-			case "http":
-				outboundTag = "http-forward-outbound"
-			default:
-				continue
-			}
-			
-			// 添加路由规则，将该入站的流量转发到二次转发服务器
-			rule := map[string]interface{}{
-				"type":        "field",
-				"inboundTag":  []string{inbound.Tag},
-				"outboundTag": outboundTag,
-			}
-			rules = append(rules, rule)
+	var rules []interface{}
+	if existingRules, ok := routing["rules"]; ok {
+		if existingSlice, ok := existingRules.([]interface{}); ok {
+			rules = existingSlice
 		}
 	}
 	
+	// 添加新的路由规则
+	rules = append(rules, newRules...)
 	routing["rules"] = rules
 	
 	// 更新路由配置
-	routingJSON, _ := json.Marshal(routing)
-	config["routing"] = json.RawMessage(routingJSON)
+	routingJSON, err := json.Marshal(routing)
+	if err == nil {
+		config["routing"] = json.RawMessage(routingJSON)
+	}
 }
