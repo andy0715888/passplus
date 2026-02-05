@@ -17,6 +17,13 @@ const (
 	Shadowsocks Protocol = "shadowsocks"
 )
 
+// 二次转发协议类型常量
+const (
+	SecondaryForwardNone  = "none"
+	SecondaryForwardSOCKS = "socks"
+	SecondaryForwardHTTP  = "http"
+)
+
 type User struct {
 	Id       int    `json:"id" gorm:"primaryKey;autoIncrement"`
 	Username string `json:"username"`
@@ -41,6 +48,14 @@ type Inbound struct {
 	StreamSettings string   `json:"streamSettings" form:"streamSettings"`
 	Tag            string   `json:"tag" form:"tag" gorm:"unique"`
 	Sniffing       string   `json:"sniffing" form:"sniffing"`
+	
+	// ===== 添加二次转发配置字段 =====
+	SecondaryForwardEnable   bool   `json:"secondaryForwardEnable" form:"secondaryForwardEnable" gorm:"default:false"`
+	SecondaryForwardProtocol string `json:"secondaryForwardProtocol" form:"secondaryForwardProtocol" gorm:"default:'none'"`
+	SecondaryForwardAddress  string `json:"secondaryForwardAddress" form:"secondaryForwardAddress" gorm:"default:''"`
+	SecondaryForwardPort     int    `json:"secondaryForwardPort" form:"secondaryForwardPort" gorm:"default:0"`
+	SecondaryForwardUsername string `json:"secondaryForwardUsername" form:"secondaryForwardUsername" gorm:"default:''"`
+	SecondaryForwardPassword string `json:"secondaryForwardPassword" form:"secondaryForwardPassword" gorm:"default:''"`
 }
 
 func (i *Inbound) GenXrayInboundConfig() *xray.InboundConfig {
@@ -48,7 +63,8 @@ func (i *Inbound) GenXrayInboundConfig() *xray.InboundConfig {
 	if listen != "" {
 		listen = fmt.Sprintf("\"%v\"", listen)
 	}
-	return &xray.InboundConfig{
+	
+	config := &xray.InboundConfig{
 		Listen:         json_util.RawMessage(listen),
 		Port:           i.Port,
 		Protocol:       string(i.Protocol),
@@ -56,7 +72,17 @@ func (i *Inbound) GenXrayInboundConfig() *xray.InboundConfig {
 		StreamSettings: json_util.RawMessage(i.StreamSettings),
 		Tag:            i.Tag,
 		Sniffing:       json_util.RawMessage(i.Sniffing),
+		
+		// 传递二次转发配置
+		SecondaryForwardEnable:   i.SecondaryForwardEnable,
+		SecondaryForwardProtocol: i.SecondaryForwardProtocol,
+		SecondaryForwardAddress:  i.SecondaryForwardAddress,
+		SecondaryForwardPort:     i.SecondaryForwardPort,
+		SecondaryForwardUsername: i.SecondaryForwardUsername,
+		SecondaryForwardPassword: i.SecondaryForwardPassword,
 	}
+	
+	return config
 }
 
 type Setting struct {
