@@ -3,6 +3,7 @@ package xray
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"x-ui/database/model"
 	"x-ui/util/json_util"
 )
@@ -73,15 +74,15 @@ func (c *InboundConfig) Equals(other *InboundConfig) bool {
 
 // ApplySecondaryForward 应用二次转发配置到settings
 func (c *InboundConfig) ApplySecondaryForward() {
-	if !c.SecondaryForwardEnable || c.SecondaryForwardProtocol == "none" {
+	if !c.SecondaryForwardEnable || c.SecondaryForwardProtocol == "" {
 		return
 	}
 	
 	// 根据协议类型应用二次转发配置
 	switch c.SecondaryForwardProtocol {
-	case string(model.SecondaryForwardSOCKS):
+	case "socks":
 		c.applySocksForward()
-	case string(model.SecondaryForwardHTTP):
+	case "http":
 		c.applyHTTPForward()
 	}
 }
@@ -96,11 +97,10 @@ func (c *InboundConfig) applySocksForward() {
 		settings = make(map[string]interface{})
 	}
 	
-	// 添加SOCKS代理设置
+	// 添加SOCKS代理设置 - Xray的proxySettings格式
 	proxySettings := map[string]interface{}{
 		"proxySettings": map[string]interface{}{
-			"tag": "socks-forward",
-			"transportLayer": false,
+			"tag": fmt.Sprintf("socks-forward-%d", c.Port),
 		},
 	}
 	
@@ -112,9 +112,6 @@ func (c *InboundConfig) applySocksForward() {
 	// 更新settings
 	updatedSettings, _ := json.Marshal(settings)
 	c.Settings = updatedSettings
-	
-	// 创建SOCKS出站配置（需要在outbounds中添加）
-	// 注意：这里只是标记，实际的出站配置需要在其他地方处理
 }
 
 // applyHTTPForward 应用HTTP二次转发
@@ -130,8 +127,7 @@ func (c *InboundConfig) applyHTTPForward() {
 	// 添加HTTP代理设置
 	proxySettings := map[string]interface{}{
 		"proxySettings": map[string]interface{}{
-			"tag": "http-forward",
-			"transportLayer": false,
+			"tag": fmt.Sprintf("http-forward-%d", c.Port),
 		},
 	}
 	
@@ -143,21 +139,30 @@ func (c *InboundConfig) applyHTTPForward() {
 	// 更新settings
 	updatedSettings, _ := json.Marshal(settings)
 	c.Settings = updatedSettings
-	
-	// 创建HTTP出站配置（需要在outbounds中添加）
-	// 注意：这里只是标记，实际的出站配置需要在其他地方处理
 }
 
 // GetSecondaryForwardOutbound 获取二次转发出站配置
-func (c *InboundConfig) GetSecondaryForwardOutbound() json_util.RawMessage {
-	if !c.SecondaryForwardEnable || c.SecondaryForwardProtocol == "none" {
-		return nil
+func (c *InboundConfig) GetSecondaryForwardOutbound() (json_util.RawMessage, string) {
+	if !c.SecondaryForwardEnable || c.SecondaryForwardProtocol == "" {
+		return nil, ""
 	}
 	
 	var outbound map[string]interface{}
+	var tag string
 	
 	switch c.SecondaryForwardProtocol {
-	case string(model.SecondaryForwardSOCKS):
+	case "socks":
+		tag = fmt.Sprintf("socks-forward-%d", c.Port)
+		
+		// 构建用户数组
+		var users []map[string]interface{}
+		if c.SecondaryForwardUsername != "" && c.SecondaryForwardPassword != "" {
+			users = append(users, map[string]interface{}{
+				"user": c.SecondaryForwardUsername,
+				"pass": c.SecondaryForwardPassword,
+			})
+		}
+		
 		outbound = map[string]interface{}{
 			"protocol": "socks",
 			"settings": map[string]interface{}{
@@ -165,18 +170,29 @@ func (c *InboundConfig) GetSecondaryForwardOutbound() json_util.RawMessage {
 					{
 						"address": c.SecondaryForwardAddress,
 						"port":    c.SecondaryForwardPort,
-						"users": []map[string]interface{}{
-							{
-								"user": c.SecondaryForwardUsername,
-								"pass": c.SecondaryForwardPassword,
-							},
-						},
 					},
 				},
 			},
-			"tag": "socks-forward-outbound",
+			"tag": tag,
 		}
-	case string(model.SecondaryForwardHTTP):
+		
+		// 如果有认证信息，添加到服务器配置
+		if len(users) > 0 {
+			outbound["settings"].(map[string]interface{})["servers"].([]map[string]interface{})[0]["users"] = users
+		}
+		
+	case "http":
+		tag = fmt.Sprintf("http-forward-%d", c.Port)
+		
+		// 构建用户数组
+		var users []map[string]interface{}
+		if c.SecondaryForwardUsername != "" && c.SecondaryForwardPassword != "" {
+			users = append(users, map[string]interface{}{
+				"user": c.SecondaryForwardUsername,
+				"pass": c.SecondaryForwardPassword,
+			})
+		}
+		
 		outbound = map[string]interface{}{
 			"protocol": "http",
 			"settings": map[string]interface{}{
@@ -184,21 +200,46 @@ func (c *InboundConfig) GetSecondaryForwardOutbound() json_util.RawMessage {
 					{
 						"address": c.SecondaryForwardAddress,
 						"port":    c.SecondaryForwardPort,
-						"users": []map[string]interface{}{
-							{
-								"user": c.SecondaryForwardUsername,
-								"pass": c.SecondaryForwardPassword,
-							},
-						},
 					},
 				},
 			},
-			"tag": "http-forward-outbound",
+			"tag": tag,
 		}
+		
+		// 如果有认证信息，添加到服务器配置
+		if len(users) > 0 {
+			outbound["settings"].(map[string]interface{})["servers"].([]map[string]interface{})[0]["users"] = users
+		}
+		
 	default:
-		return nil
+		return nil, ""
 	}
 	
 	outboundJSON, _ := json.Marshal(outbound)
-	return outboundJSON
+	return outboundJSON, tag
+}
+
+// GetSecondaryForwardRoutingRule 获取二次转发的路由规则
+func (c *InboundConfig) GetSecondaryForwardRoutingRule() (json_util.RawMessage, string) {
+	if !c.SecondaryForwardEnable || c.SecondaryForwardProtocol == "" {
+		return nil, ""
+	}
+	
+	tag := fmt.Sprintf("%s-forward-%d", c.SecondaryForwardProtocol, c.Port)
+	
+	// 创建路由规则：将此入站的所有流量转发到对应的代理出站
+	routingRule := map[string]interface{}{
+		"type": "field",
+		"inboundTag": []string{c.Tag},
+		"outboundTag": tag,
+	}
+	
+	routingRuleJSON, _ := json.Marshal(routingRule)
+	return routingRuleJSON, tag
+}
+
+// HasSecondaryForward 检查是否有二次转发配置
+func (c *InboundConfig) HasSecondaryForward() bool {
+	return c.SecondaryForwardEnable && c.SecondaryForwardProtocol != "" && 
+	       c.SecondaryForwardAddress != "" && c.SecondaryForwardPort > 0
 }
