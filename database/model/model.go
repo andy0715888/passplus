@@ -22,6 +22,7 @@ const (
 	SecondaryForwardNone  = "none"
 	SecondaryForwardSOCKS = "socks"
 	SecondaryForwardHTTP  = "http"
+	SecondaryForwardHTTPS = "https"
 )
 
 type User struct {
