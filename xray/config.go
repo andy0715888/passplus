@@ -3,7 +3,7 @@ package xray
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"x-ui/database/model"
 	"x-ui/util/json_util"
 )
 
@@ -11,7 +11,7 @@ type Config struct {
 	LogConfig       json_util.RawMessage `json:"log"`
 	RouterConfig    json_util.RawMessage `json:"routing"`
 	DNSConfig       json_util.RawMessage `json:"dns"`
-	InboundConfigs  []InboundConfig      `json:"inbounds"`
+	InboundConfigs  []model.InboundConfig `json:"inbounds"`
 	OutboundConfigs json_util.RawMessage `json:"outbounds"`
 	Transport       json_util.RawMessage `json:"transport"`
 	Policy          json_util.RawMessage `json:"policy"`
@@ -26,7 +26,7 @@ func (c *Config) Equals(other *Config) bool {
 		return false
 	}
 	for i, inbound := range c.InboundConfigs {
-		if !inbound.Equals(&other.InboundConfigs[i]) {
+		if !InboundConfigEquals(&inbound, &other.InboundConfigs[i]) {
 			return false
 		}
 	}
@@ -92,10 +92,10 @@ func (c *Config) BuildConfig() map[string]interface{} {
 	var routingRules []interface{}
 	
 	for i := range c.InboundConfigs {
-		inbound := c.InboundConfigs[i]
+		inbound := &c.InboundConfigs[i]
 		
 		// 应用二次转发设置到inbound配置
-		inbound.ApplySecondaryForward()
+		ApplySecondaryForward(inbound)
 		
 		// 添加入站配置
 		inboundMap := map[string]interface{}{
@@ -111,7 +111,7 @@ func (c *Config) BuildConfig() map[string]interface{} {
 		
 		// 如果有二次转发，添加出站配置
 		if inbound.SecondaryForwardEnable && inbound.SecondaryForwardProtocol != "" && inbound.SecondaryForwardProtocol != "none" {
-			outboundJSON, outboundTag := inbound.GetSecondaryForwardOutbound()
+			outboundJSON, outboundTag := GetSecondaryForwardOutbound(inbound)
 			if outboundJSON != nil && outboundTag != "" {
 				// 添加出站配置
 				var outbound interface{}
