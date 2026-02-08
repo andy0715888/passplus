@@ -8,25 +8,8 @@ import (
 	"x-ui/util/json_util"
 )
 
-type InboundConfig struct {
-	Listen         json_util.RawMessage `json:"listen"` // listen 不能为空字符串
-	Port           int                  `json:"port"`
-	Protocol       string               `json:"protocol"`
-	Settings       json_util.RawMessage `json:"settings"`
-	StreamSettings json_util.RawMessage `json:"streamSettings"`
-	Tag            string               `json:"tag"`
-	Sniffing       json_util.RawMessage `json:"sniffing"`
-	
-	// 二次转发配置
-	SecondaryForwardEnable   bool   `json:"secondaryForwardEnable"`
-	SecondaryForwardProtocol string `json:"secondaryForwardProtocol"`
-	SecondaryForwardAddress  string `json:"secondaryForwardAddress"`
-	SecondaryForwardPort     int    `json:"secondaryForwardPort"`
-	SecondaryForwardUsername string `json:"secondaryForwardUsername"`
-	SecondaryForwardPassword string `json:"secondaryForwardPassword"`
-}
-
-func (c *InboundConfig) Equals(other *InboundConfig) bool {
+// InboundConfigEquals 比较两个InboundConfig是否相等
+func InboundConfigEquals(c, other *model.InboundConfig) bool {
 	if !bytes.Equal(c.Listen, other.Listen) {
 		return false
 	}
@@ -73,7 +56,7 @@ func (c *InboundConfig) Equals(other *InboundConfig) bool {
 }
 
 // ApplySecondaryForward 应用二次转发配置到settings
-func (c *InboundConfig) ApplySecondaryForward() {
+func ApplySecondaryForward(c *model.InboundConfig) {
 	if !c.SecondaryForwardEnable || c.SecondaryForwardProtocol == "" {
 		return
 	}
@@ -81,14 +64,14 @@ func (c *InboundConfig) ApplySecondaryForward() {
 	// 根据协议类型应用二次转发配置
 	switch c.SecondaryForwardProtocol {
 	case "socks":
-		c.applySocksForward()
+		applySocksForward(c)
 	case "http":
-		c.applyHTTPForward()
+		applyHTTPForward(c)
 	}
 }
 
 // applySocksForward 应用SOCKS二次转发
-func (c *InboundConfig) applySocksForward() {
+func applySocksForward(c *model.InboundConfig) {
 	// 解析现有的settings
 	var settings map[string]interface{}
 	if len(c.Settings) > 0 {
@@ -115,7 +98,7 @@ func (c *InboundConfig) applySocksForward() {
 }
 
 // applyHTTPForward 应用HTTP二次转发
-func (c *InboundConfig) applyHTTPForward() {
+func applyHTTPForward(c *model.InboundConfig) {
 	// 解析现有的settings
 	var settings map[string]interface{}
 	if len(c.Settings) > 0 {
@@ -142,7 +125,7 @@ func (c *InboundConfig) applyHTTPForward() {
 }
 
 // GetSecondaryForwardOutbound 获取二次转发出站配置
-func (c *InboundConfig) GetSecondaryForwardOutbound() (json_util.RawMessage, string) {
+func GetSecondaryForwardOutbound(c *model.InboundConfig) (json_util.RawMessage, string) {
 	if !c.SecondaryForwardEnable || c.SecondaryForwardProtocol == "" {
 		return nil, ""
 	}
@@ -220,7 +203,7 @@ func (c *InboundConfig) GetSecondaryForwardOutbound() (json_util.RawMessage, str
 }
 
 // GetSecondaryForwardRoutingRule 获取二次转发的路由规则
-func (c *InboundConfig) GetSecondaryForwardRoutingRule() (json_util.RawMessage, string) {
+func GetSecondaryForwardRoutingRule(c *model.InboundConfig) (json_util.RawMessage, string) {
 	if !c.SecondaryForwardEnable || c.SecondaryForwardProtocol == "" {
 		return nil, ""
 	}
@@ -239,7 +222,7 @@ func (c *InboundConfig) GetSecondaryForwardRoutingRule() (json_util.RawMessage, 
 }
 
 // HasSecondaryForward 检查是否有二次转发配置
-func (c *InboundConfig) HasSecondaryForward() bool {
+func HasSecondaryForward(c *model.InboundConfig) bool {
 	return c.SecondaryForwardEnable && c.SecondaryForwardProtocol != "" && 
 	       c.SecondaryForwardAddress != "" && c.SecondaryForwardPort > 0
 }
