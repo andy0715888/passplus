@@ -3,7 +3,7 @@ package model
 import (
 	"fmt"
 	"x-ui/util/json_util"
-	"x-ui/xray"
+	// 移除 xray 导入
 )
 
 type Protocol string
@@ -59,13 +59,32 @@ type Inbound struct {
 	SecondaryForwardPassword string `json:"secondaryForwardPassword" form:"secondaryForwardPassword" gorm:"default:''"`
 }
 
-func (i *Inbound) GenXrayInboundConfig() *xray.InboundConfig {
+// InboundConfig 定义配置结构，避免直接导入 xray
+type InboundConfig struct {
+	Listen                   json_util.RawMessage `json:"listen"`
+	Port                     int                  `json:"port"`
+	Protocol                 string               `json:"protocol"`
+	Settings                 json_util.RawMessage `json:"settings"`
+	StreamSettings           json_util.RawMessage `json:"streamSettings"`
+	Tag                      string               `json:"tag"`
+	Sniffing                 json_util.RawMessage `json:"sniffing"`
+	
+	// 二次转发配置
+	SecondaryForwardEnable   bool   `json:"secondaryForwardEnable"`
+	SecondaryForwardProtocol string `json:"secondaryForwardProtocol"`
+	SecondaryForwardAddress  string `json:"secondaryForwardAddress"`
+	SecondaryForwardPort     int    `json:"secondaryForwardPort"`
+	SecondaryForwardUsername string `json:"secondaryForwardUsername"`
+	SecondaryForwardPassword string `json:"secondaryForwardPassword"`
+}
+
+func (i *Inbound) GenXrayInboundConfig() *InboundConfig {
 	listen := i.Listen
 	if listen != "" {
 		listen = fmt.Sprintf("\"%v\"", listen)
 	}
 	
-	config := &xray.InboundConfig{
+	config := &InboundConfig{
 		Listen:         json_util.RawMessage(listen),
 		Port:           i.Port,
 		Protocol:       string(i.Protocol),
